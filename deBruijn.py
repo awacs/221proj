@@ -3,8 +3,11 @@ import numpy as np
 import pandas as pd
 from copy import deepcopy
 def BEST(nparray):
-  Astar=-nparray+np.diag(nparray.sum(axis=1))
-  cG=np.linalg.det(Astar.iloc[1:,1:])
+  indegree=np.diag(nparray.sum(axis=1))
+  np.fill_diagonal(nparray.values,0) # set diagonals to zero befor sum
+  Astar=-nparray+indegree
+  # choose 1st cofactor, as all i cofactor has same value
+  cG=np.linalg.det(Astar.iloc[1:,1:]) 
   ## For small read lengths, can have overflow issues
   ## Cap at 10k for convenience
   if cG*max([np.math.factorial(x) for x in np.diag(Astar)-1])>10000:
@@ -41,31 +44,35 @@ class DeBruijn():
     self.start="NA"
     self.end="NA"
     nodes=iter(degree.keys())
-    while self.start=="NA" or self.end=="NA":
-      node=next(nodes)
-      if degree[node]==1:
-        self.start=node
-      elif degree[node]==-1:
-        self.end=node
-      elif abs(degree[node])>1:
-        raise ValueError("degrees should not go over 1")
-    ## Add one connection between end and start node, to make ajac full eulerian cycle
-    self.ajac2=deepcopy(self.ajac) ## duplicate for idempotence
-    if self.end in self.ajac2.keys():
-      self.ajac2[self.end].append(self.start)
-    else:
-      self.ajac2[self.end]=[self.start]
-    ## If the deBruijn graph is just one eulerian cycle, then pick random single node as start/end node
-    ## No need to connect end to start here
-    if self.start==self.end:
+    try:
+      while self.start=="NA" or self.end=="NA":
+        node=next(nodes)
+        if degree[node]==1:
+          self.start=node
+        elif degree[node]==-1:
+          self.end=node
+        elif abs(degree[node])>1:
+          raise ValueError("degrees should not go over 1")
+    except StopIteration: # cases exist when the graph is eulerian cycle to begin with, then pick a random node as start and end node
       self.start=node
       self.end=node
+    self.ajac2=deepcopy(self.ajac) ## duplicate for idempotence
+    
+    if self.start!=self.end: # if start and end are different, add one edge to make eulerian cycle
+      self.extraedge=True
+      if self.end in self.ajac2.keys():
+        self.ajac2[self.end].append(self.start)
+      else:
+        self.ajac2[self.end]=[self.start]
+    else:
+      self.extraedge=False # tracker to keep track of whether extra edge is added
+
   def FindEulerianPath(self):
     ## First Eulerian Cycle
     ecycle=[self.start,self.ajac2[self.start].pop(random.choice(range(0,len(self.ajac2[self.start]))))] # return last element while deleting it from ajac list
     if self.ajac2[self.start]==[]:
       del self.ajac2[self.start]
-    while self.ajac2!={}: # while there are still edges to consider
+    while self.ajac2!={}: # THE RANDOM WALK
       ## if cannot go, shift the ecycle until last element has out degree
       while ecycle[-1] not in self.ajac2.keys():
         ecycle=ecycle[1:]+[ecycle[1]]
@@ -76,11 +83,15 @@ class DeBruijn():
         if self.ajac2[node]==[]:
           del self.ajac2[node]
         # print(ecycle[0])
+    # Shift back until the start lines up
     while ecycle[0]!=self.start:
       ecycle=ecycle[1:]+[ecycle[1]]
-    self.epath=ecycle[0:-1]
+    if self.extraedge==True:
+      self.epath=ecycle[0:-1] # delete the artificial edge 
+    else:
+      self.epath=ecycle
     epath=deepcopy(self.epath)
-    self.seq=epath.pop(0)
+    self.seq=epath.pop(0) 
     while epath!=[]:
       self.seq+=epath.pop(0)[-1]
   ## BEST THEOREM IMPLEMENTATION
