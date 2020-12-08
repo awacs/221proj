@@ -1,4 +1,17 @@
 import random
+import numpy as np
+import pandas as pd
+from copy import deepcopy
+def BEST(nparray):
+  Astar=-nparray+np.diag(nparray.sum(axis=1))
+  cG=np.linalg.det(Astar.iloc[1:,1:])
+  ## For small read lengths, can have overflow issues
+  ## Cap at 10k for convenience
+  if cG*max([np.math.factorial(x) for x in np.diag(Astar)-1])>10000:
+    return(10000)
+  else:
+    res=cG*np.prod([np.math.factorial(x) for x in np.diag(Astar)-1])
+    return(res)
 class DeBruijn():
   def __init__(self,kmers):
     ajac={}
@@ -37,7 +50,7 @@ class DeBruijn():
       elif abs(degree[node])>1:
         raise ValueError("degrees should not go over 1")
     ## Add one connection between end and start node, to make ajac full eulerian cycle
-    self.ajac2=self.ajac.copy() ## duplicate for idempotence
+    self.ajac2=deepcopy(self.ajac) ## duplicate for idempotence
     if self.end in self.ajac2.keys():
       self.ajac2[self.end].append(self.start)
     else:
@@ -66,10 +79,17 @@ class DeBruijn():
     while ecycle[0]!=self.start:
       ecycle=ecycle[1:]+[ecycle[1]]
     self.epath=ecycle[0:-1]
-    epath=self.epath.copy()
+    epath=deepcopy(self.epath)
     self.seq=epath.pop(0)
     while epath!=[]:
       self.seq+=epath.pop(0)[-1]
+  ## BEST THEOREM IMPLEMENTATION
+  def CCycle(self):
+    edges = [(a, b) for a, bs in self.ajac2.items() for b in bs]
+    df = pd.DataFrame(edges)
+    adj_matrix = pd.crosstab(df[0], df[1])
+    self.adj_matrix=adj_matrix
+    return(BEST(adj_matrix))
 
 # import genData
 # a=genData.Gendata(Z=0)
