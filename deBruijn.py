@@ -101,15 +101,3 @@ class DeBruijn():
     adj_matrix = pd.crosstab(df[0], df[1])
     self.adj_matrix=adj_matrix
     return(BEST(adj_matrix))
-
-# import genData
-# a=genData.Gendata(Z=0)
-# print(a.seq)
-# b=DeBruijn(a.kmers)
-# b.FindEndpoint()
-# b.FindEulerianPath()
-# print(b.start)
-# print(b.end)
-# print(b.epath)
-# print(b.seq)
-# print(a.checkmatch(b.seq))
